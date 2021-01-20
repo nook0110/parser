@@ -22,13 +22,16 @@ struct _plotData
 // * details of parser implementation
 struct _parseData
 {
-	enum class _operator
+	enum class _exprNode
 	{
 		ADDITION,
 		SUBTRACTION,
 		MULTIPLICATION,
 		DIVISION,
 		POWER,
+		IDENTICAL,
+		CONSTANT,
+		SUPERPOSITION,
 		//even the sky,
 		//Allah himself...
 	};
@@ -54,17 +57,48 @@ struct _parseData
 			return expression[i];
 		}
 	};
-	struct _functionexpr
+	// * binary tree containing the internal structure of the expression
+	class exprNode
+	{
+		private:
+			_parseData::_exprNode operation;
+			exprNode* first;
+			exprNode* second;
+		public:
+			exprNode(_parseData::_exprNode _operation, exprNode* _first, exprNode* _second)
+				: operation(_operation), first(_first), second(_second)
+			{}
+			exprNode(_parseData::exprNode _operation)
+				: operation(_operation), first(nullptr), second(nullptr)
+			{}
+			exprNode()
+			{}
+
+			// * basic operations
+
+			friend exprNode operator+(exprNode& _first, exprNode& _second);
+			friend exprNode operator-(exprNode& _first, exprNode& _second);
+			friend exprNode operator*(exprNode& _first, exprNode& _second);
+			friend exprNode operator/(exprNode& _first, exprNode& _second);
+
+			// * other algebraic operations
+
+			friend exprNode power(exprNode& _first, exprNode& _second);
+			friend exprNode superposition(exprNode& _first, exprNode& _second);
+	};
+	struct _nodeexpr
 	{
 		_parseData::_substring expression;
-		_plotData::function function;
-		_functionexpr()
+		_parseData::exprNode node;
+		_nodeexpr()
 		{}
-		_functionexpr(const _parseData::_substring& _expression, const _plotData::function _function)
-			: expression(_expression), function(_function)
+		_nodeexpr(const _parseData::_substring& _expression, const _parseData::exprNode _node)
+			: expression(_expression), node(_node)
 		{}
 	};
 };
+
+
 
 // * functors
 class lambdaAddition
@@ -144,9 +178,9 @@ public:
 };
 
 // * some functions declarations
-size_t findOperator(const _parseData::_substring& _expression, const _parseData::_operator operation);
+size_t findOperator(const _parseData::_substring& _expression, const _parseData::_exprNode operation);
 _plotData::function parseExpression(const _parseData::_substring& expr);
-_parseData::_functionexpr parseSubexpression(const _parseData::_substring& substring);
+_parseData::_nodeexpr parseSubexpression(const _parseData::_substring& substring);
 bool isWord(_parseData::_substring string, size_t wordBegin, std::string word);
 
 // * ifndef _PLOT_SOURCE_H_

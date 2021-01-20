@@ -3,7 +3,42 @@
 
 #include "plot_source.h"
 
+using namespace _parseData;
+
+// * algebraic operations implementation
+
+exprNode operator+(exprNode& _first, exprNode& _second)
+{
+	return exprNode(_exprNode::ADDITION, &_first, &_second);
+}
+
+exprNode operator-(exprNode& _first, exprNode& _second)
+{
+	return exprNode(_exprNode::SUBTRACTION, &_first, &_second);
+}
+
+exprNode operator*(exprNode& _first, exprNode& _second)
+{
+	return exprNode(_exprNode::MULTIPLICATION, &_first, &_second);
+}
+
+exprNode operator/(exprNode& _first, exprNode& _second)
+{
+	return exprNode(_exprNode::DIVISION, &_first, &_second);
+}
+
+exprNode power(exprNode& _first, exprNode& _second)
+{
+	return exprNode(_exprNode::POWER, &_first, &_second);
+}
+
+exprNode superposition(exprNode& _first, exprNode& _second)
+{
+	return exprNode(_exprNode::SUPERPOSITION, &_first, &_second);
+}
+
 // * functors implementation
+
 lambdaAddition::lambdaAddition(const _plotData::function& _left, const _plotData::function& _right)
 	: left{ _left }, right{ _right }
 	{}
@@ -73,24 +108,24 @@ float lambdaId::operator()(float x) const noexcept
 	return x;
 }
 
-size_t findOperator(const _parseData::_substring& _expression, const _parseData::_operator operation)
+size_t findOperator(const _substring& _expression, const _exprNode operation)
 {
 	char _operation;
 	switch (operation)
 	{
-	case _parseData::_operator::ADDITION:
+	case _exprNode::ADDITION:
 		_operation = '+';
 		break;
-	case _parseData::_operator::DIVISION:
+	case _exprNode::DIVISION:
 		_operation = '/';
 		break;
-	case _parseData::_operator::MULTIPLICATION:
+	case _exprNode::MULTIPLICATION:
 		_operation = '*';
 		break;
-	case _parseData::_operator::POWER:
+	case _exprNode::POWER:
 		_operation = '^';
 		break;
-	case _parseData::_operator::SUBTRACTION:
+	case _exprNode::SUBTRACTION:
 		_operation = '-';
 		break;
 	}
@@ -114,10 +149,10 @@ size_t findOperator(const _parseData::_substring& _expression, const _parseData:
 	return 0;
 }
 
-_parseData::_functionexpr parseSubexpression(const _parseData::_substring& substring)
+_nodeexpr parseSubexpression(const _substring& substring)
 {
 	const size_t end = substring.end;
-	_parseData::_substring resultString(substring); // resultString.begin = substring.begin
+	_substring resultString(substring); // resultString.begin = substring.begin
 	size_t& subEnd = resultString.end;
 	size_t subBegin;
 	for (subBegin = substring.begin; subBegin <= end && substring[subBegin] == ' '; ++subBegin)
@@ -129,7 +164,7 @@ _parseData::_functionexpr parseSubexpression(const _parseData::_substring& subst
 		for (subEnd = subBegin + 1; subEnd <= end && substring[subEnd] == ' '; ++subEnd)
 			;
 		--subEnd;
-		return _parseData::_functionexpr(resultString, _plotData::function(lambdaId()));
+		return _nodeexpr(resultString, exprNode(_exprNode::IDENTICAL));
 	}
 	case '(':
 	{
@@ -147,14 +182,14 @@ _parseData::_functionexpr parseSubexpression(const _parseData::_substring& subst
 		for (subEnd = parPosition + 1; subEnd <= end && substring[subEnd] == ' '; ++subEnd)
 			;
 		--subEnd;
-		_parseData::_substring inside(substring.expression, subBegin + 1, parPosition - 1);
-		_plotData::function parsedFunction = parseExpression(inside);
-		return _parseData::_functionexpr(resultString, parsedFunction);
+		_substring inside(substring.expression, subBegin + 1, parPosition - 1);
+		exprNode parsedNode = parseExpression(inside);
+		return _nodeexpr(resultString, parsedFunction);
 	}
 	case '-':
 	{
 		subEnd = subBegin;
-		return _parseData::_functionexpr(resultString, lambdaConstant(-1));
+		return _nodeexpr(resultString, lambdaConstant(-1));
 	}
 	case 's':
 	{
@@ -164,24 +199,24 @@ _parseData::_functionexpr parseSubexpression(const _parseData::_substring& subst
 		{
 			if(isWord(substring, subBegin, "sqrt"))
 			{
-			_parseData::_substring squareArg = substring;
+			_substring squareArg = substring;
 			squareArg.begin = subBegin + 4;
-			_parseData::_functionexpr squareArgFunc = parseSubexpression(squareArg);
+			_nodeexpr squareArgFunc = parseSubexpression(squareArg);
 			subEnd = squareArgFunc.expression.end;
 			_plotData::function resultFunc = lambdaPower(squareArgFunc.function, lambdaConstant(0.5));
-			return _parseData::_functionexpr(resultString, resultFunc);
+			return _nodeexpr(resultString, resultFunc);
 			}
 		}
 		else if (substring[subBegin + 1] == 'i')
 		{
 			if(isWord(substring, subBegin, "sin"))
 			{
-			_parseData::_substring sinArg = substring;
+			_substring sinArg = substring;
 			sinArg.begin = subBegin + 3;
-			_parseData::_functionexpr sinArgFunc = parseSubexpression(sinArg);
+			_nodeexpr sinArgFunc = parseSubexpression(sinArg);
 			subEnd = sinArgFunc.expression.end;
 			_plotData::function resultFunc = lambdaSuper(static_cast<float(*)(float)>(&sinf), sinArgFunc.function);
-			return _parseData::_functionexpr(resultString, resultFunc);
+			return _nodeexpr(resultString, resultFunc);
 			}
 		}
 		else
@@ -191,57 +226,57 @@ _parseData::_functionexpr parseSubexpression(const _parseData::_substring& subst
 	{
 		if(isWord(substring, subBegin, "cos"))
 		{
-		_parseData::_substring cosArg = substring;
+		_substring cosArg = substring;
 		cosArg.begin = subBegin + 3;
-		_parseData::_functionexpr cosArgFunc = parseSubexpression(cosArg);
+		_nodeexpr cosArgFunc = parseSubexpression(cosArg);
 		subEnd = cosArgFunc.expression.end;
 		_plotData::function resultFunc = lambdaSuper(static_cast<float(*)(float)>(&cosf), cosArgFunc.function);
-		return _parseData::_functionexpr(resultString, resultFunc);
+		return _nodeexpr(resultString, resultFunc);
 		}
 		else if(isWord(substring, subBegin, "ctg"))
 		{
-		_parseData::_substring ctgArg = substring;
+		_substring ctgArg = substring;
 		ctgArg.begin = subBegin + 3;
-		_parseData::_functionexpr ctgArgFunc = parseSubexpression(ctgArg);
+		_nodeexpr ctgArgFunc = parseSubexpression(ctgArg);
 		subEnd = ctgArgFunc.expression.end;
 		_plotData::function resultFunc = lambdaDivision(lambdaConstant(1), lambdaSuper(static_cast<float(*)(float)>(&tanf), ctgArgFunc.function));
-		return _parseData::_functionexpr(resultString, resultFunc);
+		return _nodeexpr(resultString, resultFunc);
 		}
 	}
 	case 't':
 	{
 		if(isWord(substring, subBegin, "tan"))
 		{
-		_parseData::_substring tgArg = substring;
+		_substring tgArg = substring;
 		tgArg.begin = subBegin + 3;
-		_parseData::_functionexpr tgArgFunc = parseSubexpression(tgArg);
+		_nodeexpr tgArgFunc = parseSubexpression(tgArg);
 		subEnd = tgArgFunc.expression.end;
 		_plotData::function resultFunc = lambdaSuper(static_cast<float(*)(float)>(&tanf), tgArgFunc.function);
-		return _parseData::_functionexpr(resultString, resultFunc);
+		return _nodeexpr(resultString, resultFunc);
 		}
 	}
 	case 'e':
 	{
 		if(isWord(substring, subBegin, "exp"))
 		{
-		_parseData::_substring expArg = substring;
+		_substring expArg = substring;
 		expArg.begin = subBegin + 3;
-		_parseData::_functionexpr expArgFunc = parseSubexpression(expArg);
+		_nodeexpr expArgFunc = parseSubexpression(expArg);
 		subEnd = expArgFunc.expression.end;
 		_plotData::function resultFunc = lambdaSuper(static_cast<float(*)(float)>(&expf), expArgFunc.function);
-		return _parseData::_functionexpr(resultString, resultFunc);
+		return _nodeexpr(resultString, resultFunc);
 		}
 	}
 	case 'l':
 	{
 		if(isWord(substring, subBegin, "log"))
 		{
-		_parseData::_substring lnArg = substring;
+		_substring lnArg = substring;
 		lnArg.begin = subBegin + 3;
-		_parseData::_functionexpr lnArgFunc = parseSubexpression(lnArg);
+		_nodeexpr lnArgFunc = parseSubexpression(lnArg);
 		subEnd = lnArgFunc.expression.end;
 		_plotData::function resultFunc = lambdaSuper(static_cast<float(*)(float)>(&logf), lnArgFunc.function);
-		return _parseData::_functionexpr(resultString, resultFunc);
+		return _nodeexpr(resultString, resultFunc);
 		}
 	}
 	default: // probably expression is a number
@@ -258,12 +293,12 @@ _parseData::_functionexpr parseSubexpression(const _parseData::_substring& subst
 			;
 		--subEnd;
 		float number = std::stof(string_number);
-		return _parseData::_functionexpr(resultString, _plotData::function(lambdaConstant(number)));
+		return _nodeexpr(resultString, _plotData::function(lambdaConstant(number)));
 	}
 	}
 }
 
-bool isWord(_parseData::_substring string, size_t wordBegin, std::string word)
+bool isWord(_substring string, size_t wordBegin, std::string word)
 {
 	for(size_t i = 0; i < word.length(); ++i)
 	{
@@ -275,68 +310,68 @@ bool isWord(_parseData::_substring string, size_t wordBegin, std::string word)
 	return true;
 }
 
-_plotData::function parseExpression(const _parseData::_substring& expr)
+_plotData::function parseExpression(const _substring& expr)
 {
 	const size_t begin = expr.begin;
 	const size_t end = expr.end;
-	_parseData::_functionexpr firstExpr = parseSubexpression(expr); // first math subexpression
+	_nodeexpr firstExpr = parseSubexpression(expr); // first math subexpression
 	if (firstExpr.expression.end == end) // if the first expr is the whole string
 		return firstExpr.function;
-	size_t operatorPlace = findOperator(expr, _parseData::_operator::ADDITION);
+	size_t operatorPlace = findOperator(expr, _exprNode::ADDITION);
 	if (operatorPlace && operatorPlace != end)
 	{
-		const _plotData::function left(parseExpression(_parseData::_substring(expr.expression, begin, operatorPlace - 1)));
-		const _plotData::function right(parseExpression(_parseData::_substring(expr.expression, operatorPlace + 1, end)));
+		const _plotData::function left(parseExpression(_substring(expr.expression, begin, operatorPlace - 1)));
+		const _plotData::function right(parseExpression(_substring(expr.expression, operatorPlace + 1, end)));
 		return _plotData::function(lambdaAddition(left, right));
 	}
-	operatorPlace = findOperator(expr, _parseData::_operator::SUBTRACTION);
+	operatorPlace = findOperator(expr, _parseData::_exprNode::SUBTRACTION);
 	if (operatorPlace && operatorPlace != end)
 	{
-		const _plotData::function left(parseExpression(_parseData::_substring(expr.expression, begin, operatorPlace - 1)));
-		const _plotData::function right(parseExpression(_parseData::_substring(expr.expression, operatorPlace + 1, end)));
+		const _plotData::function left(parseExpression(_substring(expr.expression, begin, operatorPlace - 1)));
+		const _plotData::function right(parseExpression(_substring(expr.expression, operatorPlace + 1, end)));
 		return _plotData::function(lambdaSubtraction(left, right));
 	}
-	operatorPlace = findOperator(expr, _parseData::_operator::MULTIPLICATION);
+	operatorPlace = findOperator(expr, _exprNode::MULTIPLICATION);
 	if (operatorPlace && operatorPlace != end)
 	{
-		const _plotData::function left(parseExpression(_parseData::_substring(expr.expression, begin, operatorPlace - 1)));
-		const _plotData::function right(parseExpression(_parseData::_substring(expr.expression, operatorPlace + 1, end)));
+		const _plotData::function left(parseExpression(_substring(expr.expression, begin, operatorPlace - 1)));
+		const _plotData::function right(parseExpression(_substring(expr.expression, operatorPlace + 1, end)));
 		return _plotData::function(lambdaMultiplication(left, right));
 	}
-	operatorPlace = findOperator(expr, _parseData::_operator::DIVISION);
+	operatorPlace = findOperator(expr, _exprNode::DIVISION);
 	// can actually throw division by zero exception
 	if (operatorPlace && operatorPlace != end)
 	{
-		const _plotData::function left(parseExpression(_parseData::_substring(expr.expression, begin, operatorPlace - 1)));
-		const _plotData::function right(parseExpression(_parseData::_substring(expr.expression, operatorPlace + 1, end)));
+		const _plotData::function left(parseExpression(_substring(expr.expression, begin, operatorPlace - 1)));
+		const _plotData::function right(parseExpression(_substring(expr.expression, operatorPlace + 1, end)));
 		return _plotData::function(lambdaDivision(left, right));
 	}
 	if (expr[firstExpr.expression.end + 1] != '^')
 	{
 		// can throw an exception if the expression cannot be parsed
 		// returns a product of the first subexpr and the rest of the expression
-		_plotData::function restFunction = parseExpression(_parseData::_substring(expr.expression,
+		_plotData::function restFunction = parseExpression(_substring(expr.expression,
 			firstExpr.expression.end + 1,
 			end));
 		return _plotData::function(lambdaMultiplication(firstExpr.function, restFunction));
 	}
-	operatorPlace = findOperator(expr, _parseData::_operator::POWER);
+	operatorPlace = findOperator(expr, _exprNode::POWER);
 	if (operatorPlace && operatorPlace != end)
 	{
-		const _plotData::function left(parseExpression(_parseData::_substring(expr.expression, begin, operatorPlace - 1)));
-		const _plotData::function right(parseExpression(_parseData::_substring(expr.expression, operatorPlace + 1, end)));
+		const _plotData::function left(parseExpression(_substring(expr.expression, begin, operatorPlace - 1)));
+		const _plotData::function right(parseExpression(_substring(expr.expression, operatorPlace + 1, end)));
 		return _plotData::function(lambdaPower(left, right));
 	}
 }
 
-
+/*
 
 #include<iostream>
 int main()
 {
 	std::string expr;
 	std::getline(std::cin, expr);
-	_plotData::function result = parseExpression(_parseData::_substring(expr));
+	_plotData::function result = parseExpression(_substring(expr));
 	float x;
 	do
 	{
@@ -346,3 +381,5 @@ int main()
 	system("pause");
 	return 0;
 }
+
+*/
