@@ -146,7 +146,7 @@ struct _parseData
 				std::cout << Operations[operation] << std::endl;
 
 				// enter the next tree level - left and right branch
-				argument->printBT(prefix + (isLeft ? "|   " : "    "), true);
+				argument->printBT(prefix + (isLeft ? "|   " : "    "), false);
 			}
 	};
 	// * child class containing binary ariphmetic operations
