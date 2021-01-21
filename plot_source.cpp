@@ -1,4 +1,4 @@
-// * source for plot builder
+﻿// * source for plot builder
 // *
 
 #include "plot_source.h"
@@ -304,6 +304,7 @@ int main()
 	std::string expr;
 	std::getline(std::cin, expr);
 	_parseData::_node* tree = parseExpression(_parseData::_substring(expr));
+	tree->printBT("", false);
 	float x;
 	do
 	{

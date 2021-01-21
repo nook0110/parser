@@ -1,4 +1,4 @@
-// * plot builder source header
+﻿// * plot builder source header
 // *
 
 #ifndef _PLOT_SOURCE_H_
@@ -8,6 +8,7 @@
 #include <string> //? std::string
 #include <functional> //? std::function
 #include <cmath> //? std math functions
+#include <iostream>
 
 // * type aliasing
 struct _plotData
@@ -16,11 +17,29 @@ struct _plotData
 };
 
 // * details of parser implementation
+
+static char *Operations[] =
+{
+	"ADDITION",
+	"SUBTRACTION",
+	"MULTIPLICATION",
+	"DIVISION",
+	"POWER",
+	"IDENTICAL",
+	"CONSTANT",
+	"SIN",
+	"COS",
+	"TAN",
+	"CTAN",
+	"EXP",
+	"LOG",
+};
+
 struct _parseData
 {
-	enum class _nodeOperation
+	enum _nodeOperation
 	{
-		ADDITION,
+		ADDITION=0,
 		SUBTRACTION,
 		MULTIPLICATION,
 		DIVISION,
@@ -36,6 +55,7 @@ struct _parseData
 		//even the sky,
 		//Allah himself...
 	};
+
 	struct _substring
 	{
 		std::string expression;
@@ -69,6 +89,16 @@ struct _parseData
 				operation = _nodeOperation::IDENTICAL;
 			}
 			virtual const float operator()(const float x) const { return x; }
+
+			virtual void printBT(const std::string& prefix, bool isLeft)
+			{
+				std::cout << prefix;
+
+				std::cout << (isLeft ? "|---" : "^---");
+
+				// print the value of the node
+				std::cout << "X" << std::endl;
+			}
 	};
 	// * child class containing constant function
 	class _nodeConst : public _node
@@ -82,6 +112,16 @@ struct _parseData
 				this->operation = _nodeOperation::CONSTANT;
 			}
 			virtual const float operator()(const float x) const noexcept { return const_value; }
+
+			virtual void printBT(const std::string& prefix, bool isLeft)
+			{
+				std::cout << prefix;
+
+				std::cout << (isLeft ? "|---" : "^---");
+
+				// print the value of the node
+				std::cout << const_value << std::endl;
+			}
 	};
 	// * child class containing different algebraic functions
 	class _nodeFunction : public _node
@@ -95,6 +135,19 @@ struct _parseData
 				this->operation = FUNCTION_TYPE;
 			}
 			virtual const float operator()(const float x) const;
+
+			virtual void printBT(const std::string& prefix, bool isLeft)
+			{
+				std::cout << prefix;
+
+				std::cout << (isLeft ? "|---" : "^---");
+
+				// print the value of the node
+				std::cout << Operations[operation] << std::endl;
+
+				// enter the next tree level - left and right branch
+				argument->printBT(prefix + (isLeft ? "|   " : "    "), true);
+			}
 	};
 	// * child class containing binary ariphmetic operations
 	class _nodeOperator : public _node
@@ -112,6 +165,20 @@ struct _parseData
 				this->operation = OPERATION_TYPE;
 			}
 			virtual const float operator()(const float x) const noexcept;
+
+			virtual void printBT(const std::string& prefix, bool isLeft)
+			{
+				std::cout << prefix;
+
+				std::cout << (isLeft ? "|---" : "^---");
+
+				// print the value of the node
+				std::cout << Operations[operation] << std::endl;
+
+				// enter the next tree level - left and right branch
+				firstOperand->printBT(prefix + (isLeft ? "|   " : "    "), true);
+				secondOperand->printBT(prefix + (isLeft ? "|   " : "    "), false);
+			}
 	};
 	struct _nodeexpr
 	{
